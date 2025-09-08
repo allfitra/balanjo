@@ -71,9 +71,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: "History",
+          title: "ON GOING",
           tabBarIcon: ({ color }) => (
-            <Entypo name="database" color={color} size={24} />
+            <Entypo name="500px-with-circle" color={color} size={24} />
           ),
         }}
       />

@@ -13,7 +13,7 @@
 
 ---
 
-## 🚀 Fitur Utama  
+## 🚀 Main Utama  
 
 - 💰 **save financial transactions**
 - ⏰ **Real-time day and clock** 
@@ -31,7 +31,7 @@
 
 ---
 
-## 🛠️ Instalasi  
+## 🛠️ Installation  
 
 1. Clone repo  
    ```bash

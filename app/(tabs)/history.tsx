@@ -1,40 +1,27 @@
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 
-import { ThemedView } from "@/components/ThemedView";
+import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
-
-type Transaction = {
-  type: string;
-  price?: number;
-  desc: string;
-  source: string;
-};
 
 export default function HistoryScreen() {
-  const [transaction, setTransaction] = useState<Transaction>({
-    type: "",
-    price: undefined as number | undefined,
-    desc: "",
-    source: "",
-  });
-
   return (
-    <ThemedView style={{ flex: 1 }}>
+    <ParallaxScrollView backgroundColor={{ light: "#fff", dark: "#000" }}>
       <LinearGradient
         colors={["#0f1f49", "#2997beff", "transparent"]}
         style={styles.headerShape}
-      />
-    </ThemedView>
+      >
+
+      </LinearGradient>
+    </ParallaxScrollView>
   );
 }
 
+const { height: screenHeight } = Dimensions.get("window");
+
 const styles = StyleSheet.create({
   headerShape: {
-    height: 150,
+    height: screenHeight,
     justifyContent: "center",
     alignItems: "center",
-    borderBottomRightRadius: 80,
-    borderBottomLeftRadius: 80,
   },
 });

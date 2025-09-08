@@ -18,6 +18,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       foregroundImage: "./assets/images/balanjo-adaptive-icon.png",
       backgroundColor: "#000a26",
     },
+    permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "INTERNET"],
     edgeToEdgeEnabled: true,
     package: "com.allfitra.balanjo",
   },
@@ -53,6 +54,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseKey: process.env.EXPO_PUBLIC_SUPABASE_KEY,
-    apiMyquranUrl: process.env.EXPO_API_MYQURAN_URL,
+    apiMyquranUrl: process.env.EXPO_PUBLIC_API_MYQURAN_URL,
   },
 });
