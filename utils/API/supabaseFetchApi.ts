@@ -16,6 +16,17 @@ export const getData = async (table: string) => {
   }
 };
 
+export const getSumTransaction = async (table: string) => {
+  const { data, error } = await supabase.from(table).select("*");
+
+  if (error) {
+    console.error(`Error fetching data from ${table}:`, error.message);
+    return null;
+  }
+
+  return data;
+};
+
 export const postData = async <T>(
   table: string,
   payload: T

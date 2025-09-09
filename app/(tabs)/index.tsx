@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +14,7 @@ import {
 
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedButton } from "@/components/ThemedButton";
+import { SummaryTransaction } from "@/components/ui/home/SummaryTransaction";
 import { getCurrentLocation } from "@/components/utils/getCurrentLocation";
 import { getNextPrayerTime } from "@/components/utils/getNextPrayerTime";
 import { Colors } from "@/constants/Colors";
@@ -18,7 +23,7 @@ import {
   getDateHijriyah,
   getPraytime,
 } from "@/utils/API/quranFetchApi";
-import { postData } from "@/utils/API/supabaseFetchApi";
+import { getSumTransaction, postData } from "@/utils/API/supabaseFetchApi";
 import { Entypo, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import TextTicker from "react-native-text-ticker";
@@ -28,6 +33,11 @@ type Transaction = {
   price?: number;
   desc: string;
   source: string;
+};
+
+type SumTransaction = {
+  income: number;
+  expense: number;
 };
 
 type MuslimDateTime = {
@@ -69,6 +79,7 @@ const months = [
 // };
 
 export default function HomeScreen() {
+  const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSoundPlay, setIsSoundPlay] = useState<boolean>(false);
   const [currentLocation, setCurrentLocation] = useState<any>();
@@ -91,6 +102,11 @@ export default function HomeScreen() {
   });
   const [priceInput, setPriceInput] = useState("");
 
+  const [sumTransaction, setSumTransaction] = useState<SumTransaction>({
+    income: 0,
+    expense: 0,
+  });
+
   const onChangePrice = (text: string) => {
     const numericValue = text.replace(/[^0-9]/g, "");
 
@@ -104,6 +120,28 @@ export default function HomeScreen() {
       setPriceInput("");
     }
   };
+
+  const getSummaryTransaction = () => {
+    getSumTransaction("sum_transaction").then((data) => {
+      const summary = { income: 0, expense: 0 };
+
+      data?.forEach((item: any) => {
+        if (item.type === "income") {
+          summary.income = item.total_price;
+        } else if (item.type === "expense") {
+          summary.expense = item.total_price;
+        }
+      });
+
+      setSumTransaction(summary);
+    });
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    getSummaryTransaction();
+    setRefreshing(false);
+  }, [getSummaryTransaction]);
 
   const postTransaction = async (data: Transaction) => {
     if (!data.type || data.price === undefined || !data.desc) {
@@ -123,6 +161,7 @@ export default function HomeScreen() {
 
       alert("Transaction saved successfully! ✅");
       setTransaction({ type: "", price: undefined, desc: "", source: "" });
+      getSummaryTransaction();
       setPriceInput("");
     } catch (error) {
       console.error("Error posting transaction:", error);
@@ -146,6 +185,8 @@ export default function HomeScreen() {
         }));
       })
       .catch((err) => console.error("Error:", err));
+
+    getSummaryTransaction();
   }, []);
 
   useEffect(() => {
@@ -188,12 +229,6 @@ export default function HomeScreen() {
     }
   }, [muslimDateTime]);
 
-  // console.log(cityId);
-
-  // console.log("DATAA", muslimDateTime);
-  // console.log(nextPrayer);
-  // console.log(currentLocation);
-
   const currentDateTime = {
     day: `${days[currentTime.getDay()]}`,
     date: `${days[currentTime.getDay()]}, ${String(
@@ -206,197 +241,272 @@ export default function HomeScreen() {
   };
 
   return (
-    <ParallaxScrollView backgroundColor={{ light: "#fff", dark: "#000" }}>
-      <LinearGradient
-        colors={[Colors.secondary, Colors.primary, "transparent"]}
-        style={styles.headerShape}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
+      <ScrollView
+        contentContainerStyle={{ flex: 1 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <View style={styles.timeDateContainer}>
-            <Text style={{ fontSize: 14, fontWeight: 500 }}>
-              {currentDateTime.date}
-            </Text>
-            <View style={styles.timeContainer}>
-              <Text style={styles.timeBox}>{currentDateTime.hour}</Text>
-              <Text style={styles.separator}>:</Text>
-              <Text style={styles.timeBox}>{currentDateTime.minute}</Text>
-            </View>
-          </View>
-          <View style={styles.playSoundContainer}>
-            <View style={styles.playSoundText}>
-              <TextTicker
-                style={{ fontSize: 13 }}
-                duration={8000}
-                loop
-                bounce={false}
-                repeatSpacer={50}
-                marqueeDelay={1000}
-              >
-                now playing sound
-              </TextTicker>
-            </View>
-            <View style={styles.timeContainer}>
-              <TouchableOpacity
-                style={{ padding: 5, borderRadius: 5, backgroundColor: "#eee" }}
-              >
-                <Entypo name="controller-jump-to-start" size={18} />
-              </TouchableOpacity>
-              {isSoundPlay ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    setIsSoundPlay(false);
-                  }}
-                  style={{
-                    padding: 5,
-                    borderRadius: 5,
-                    backgroundColor: "#eee",
-                  }}
-                >
-                  <Ionicons name="pause" size={18} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => {
-                    setIsSoundPlay(true);
-                  }}
-                  style={{
-                    padding: 5,
-                    borderRadius: 5,
-                    backgroundColor: "#eee",
-                  }}
-                >
-                  <Ionicons name="play" size={18} />
-                </TouchableOpacity>
-              )}
+        <ParallaxScrollView backgroundColor={{ light: "#fff", dark: "#000" }}>
+          <LinearGradient
+            colors={[Colors.secondary, Colors.primary, "transparent"]}
+            style={styles.headerShape}
+          >
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-between" }}
+            >
+              <View style={styles.timeDateContainer}>
+                <Text style={{ fontSize: 14, fontWeight: 500 }}>
+                  {currentDateTime.date}
+                </Text>
+                <View style={styles.timeContainer}>
+                  <Text style={styles.timeBox}>{currentDateTime.hour}</Text>
+                  <Text style={styles.separator}>:</Text>
+                  <Text style={styles.timeBox}>{currentDateTime.minute}</Text>
+                </View>
+              </View>
+              <View style={styles.playSoundContainer}>
+                <View style={styles.playSoundText}>
+                  <TextTicker
+                    style={{ fontSize: 13 }}
+                    duration={8000}
+                    loop
+                    bounce={false}
+                    repeatSpacer={50}
+                    marqueeDelay={1000}
+                  >
+                    now playing sound
+                  </TextTicker>
+                </View>
+                <View style={styles.timeContainer}>
+                  <TouchableOpacity
+                    style={{
+                      padding: 5,
+                      borderRadius: 5,
+                      backgroundColor: "#eee",
+                    }}
+                  >
+                    <Entypo name="controller-jump-to-start" size={18} />
+                  </TouchableOpacity>
+                  {isSoundPlay ? (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsSoundPlay(false);
+                      }}
+                      style={{
+                        padding: 5,
+                        borderRadius: 5,
+                        backgroundColor: "#eee",
+                      }}
+                    >
+                      <Ionicons name="pause" size={18} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsSoundPlay(true);
+                      }}
+                      style={{
+                        padding: 5,
+                        borderRadius: 5,
+                        backgroundColor: "#eee",
+                      }}
+                    >
+                      <Ionicons name="play" size={18} />
+                    </TouchableOpacity>
+                  )}
 
-              <TouchableOpacity
-                style={{ padding: 5, borderRadius: 5, backgroundColor: "#eee" }}
+                  <TouchableOpacity
+                    style={{
+                      padding: 5,
+                      borderRadius: 5,
+                      backgroundColor: "#eee",
+                    }}
+                  >
+                    <Entypo name="controller-next" size={18} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+            <View style={styles.muslimTimeContainer}>
+              <View style={{ flexDirection: "column", gap: 3 }}>
+                {isLoading ? (
+                  <ActivityIndicator size="large" color="#61bcddff" />
+                ) : (
+                  <>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: "700",
+                        textAlign: "center",
+                      }}
+                    >
+                      {nextPrayer?.name}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: "700",
+                        textAlign: "center",
+                      }}
+                    >
+                      {nextPrayer?.time || "-:-"}
+                    </Text>
+                  </>
+                )}
+              </View>
+              <View style={{ flexDirection: "column", gap: 5 }}>
+                <Text style={{ fontSize: 14, fontWeight: 500 }}>
+                  {muslimDateTime.hijriyahDate}
+                </Text>
+                <Text style={{ fontSize: 14, fontWeight: 500, color: "#666" }}>
+                  <Entypo name="location" size={14} />
+                  <Text> </Text>
+                  <Text>
+                    {muslimDateTime.location ||
+                      currentLocation?.city?.toUpperCase() ||
+                      "-"}
+                  </Text>
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+          <View style={styles.mainContainer}>
+            <View
+              style={{
+                backgroundColor: Colors.third,
+                borderRadius: 12,
+                padding: 10,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
               >
-                <Entypo name="controller-next" size={18} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-        <View style={styles.muslimTimeContainer}>
-          <View style={{ flexDirection: "column", gap: 3 }}>
-            {isLoading ? (
-              <ActivityIndicator size="large" color="#61bcddff" />
-            ) : (
-              <>
-                <Text
+                <SummaryTransaction
+                  transaction={sumTransaction.income}
+                  type={"Pemasukan"}
+                />
+                <SummaryTransaction
+                  transaction={sumTransaction.expense}
+                  type={"Pengeluaran"}
+                />
+              </View>
+              <View
+                style={{
+                  alignItems: "center",
+                  backgroundColor: "#d7d7d7ff",
+                  padding: 6,
+                  marginTop: 10,
+                  borderRadius: 7,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 3,
+                  elevation: 3,
+                }}
+              >
+                <View
                   style={{
-                    fontSize: 15,
-                    fontWeight: "700",
-                    textAlign: "center",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {nextPrayer?.name}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "700",
-                    textAlign: "center",
-                  }}
-                >
-                  {nextPrayer?.time || "-:-"}
-                </Text>
-              </>
-            )}
-          </View>
-          <View style={{ flexDirection: "column", gap: 5 }}>
-            <Text style={{ fontSize: 14, fontWeight: 500 }}>
-              {muslimDateTime.hijriyahDate}
-            </Text>
-            <Text style={{ fontSize: 14, fontWeight: 500, color: "#666" }}>
-              <Entypo name="location" size={14} />
-              <Text> </Text>
-              <Text>
-                {muslimDateTime.location ||
-                  currentLocation?.city?.toUpperCase() ||
-                  "-"}
-              </Text>
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
-      <View style={styles.mainContainer}>
-        {/* <View>
-          <View style={{
-            backgroundColor: Colors.third,
-            padding: 10,
-            borderRadius: 5,
-          }}>
-            <Text style={{
-              color: "#fff"
-            }}>Total Pemasukan</Text>
-            <Text style={{
-              color: "#fff"
-            }}>Rp. 10.000</Text>
-          </View>
-        </View> */}
-        <View style={styles.inputContainer}>
-          <View style={styles.priceContainer}>
-            <View style={styles.prefixBox}>
-              <Text style={styles.prefixText}>Rp</Text>
+                  <Text
+                    style={{
+                      color: "#000",
+                      fontSize: 14,
+                      fontWeight: "600",
+                      marginRight: 4,
+                    }}
+                  >
+                    Rp
+                  </Text>
+                  <Text
+                    style={{ color: "#000", fontSize: 16, fontWeight: "bold" }}
+                  >
+                    {(
+                      sumTransaction.income - sumTransaction.expense
+                    ).toLocaleString("id-ID")}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <TextInput
-              style={styles.priceInput}
-              keyboardType="numeric"
-              placeholder="Harga"
-              placeholderTextColor="#666"
-              value={priceInput}
-              onChangeText={onChangePrice}
+            <View style={styles.inputContainer}>
+              <View style={styles.priceContainer}>
+                <View style={styles.prefixBox}>
+                  <Text style={styles.prefixText}>Rp</Text>
+                </View>
+                <TextInput
+                  style={styles.priceInput}
+                  keyboardType="numeric"
+                  placeholder="Harga"
+                  placeholderTextColor="#666"
+                  value={priceInput}
+                  onChangeText={onChangePrice}
+                />
+              </View>
+              <TextInput
+                style={[
+                  styles.input,
+                  { height: 100, textAlignVertical: "top" },
+                ]}
+                placeholder="Keterangan"
+                placeholderTextColor="#666"
+                multiline={true}
+                value={transaction.desc}
+                onChangeText={(text) =>
+                  setTransaction({ ...transaction, desc: text })
+                }
+              />
+            </View>
+            <View style={styles.buttonInputContainer}>
+              <ThemedButton
+                title="Pemasukan"
+                onPress={() => {
+                  setTransaction({ ...transaction, type: "income" });
+                }}
+                style={{
+                  backgroundColor:
+                    transaction.type === "expense" ? "#9f9f9fff" : "#3dd63dff",
+                }}
+                textStyle={{
+                  textDecorationLine:
+                    transaction.type === "expense" ? "line-through" : "none",
+                }}
+              />
+              <ThemedButton
+                title="Pengeluaran"
+                onPress={() => {
+                  setTransaction({ ...transaction, type: "expense" });
+                }}
+                style={{
+                  backgroundColor:
+                    transaction.type === "income" ? "#9f9f9fff" : "#d63d3dff",
+                }}
+                textStyle={{
+                  textDecorationLine:
+                    transaction.type === "income" ? "line-through" : "none",
+                }}
+              />
+            </View>
+            <ThemedButton
+              title="Simpan"
+              onPress={() => postTransaction(transaction)}
+              style={{ backgroundColor: "#61bcddff" }}
             />
           </View>
-          <TextInput
-            style={[styles.input, { height: 100, textAlignVertical: "top" }]}
-            placeholder="Keterangan"
-            placeholderTextColor="#666"
-            multiline={true}
-            value={transaction.desc}
-            onChangeText={(text) =>
-              setTransaction({ ...transaction, desc: text })
-            }
-          />
-        </View>
-        <View style={styles.buttonInputContainer}>
-          <ThemedButton
-            title="Pemasukan"
-            onPress={() => {
-              setTransaction({ ...transaction, type: "income" });
-            }}
-            style={{
-              backgroundColor:
-                transaction.type === "expense" ? "#9f9f9fff" : "#3dd63dff",
-            }}
-            textStyle={{
-              textDecorationLine:
-                transaction.type === "expense" ? "line-through" : "none",
-            }}
-          />
-          <ThemedButton
-            title="Pengeluaran"
-            onPress={() => {
-              setTransaction({ ...transaction, type: "expense" });
-            }}
-            style={{
-              backgroundColor:
-                transaction.type === "income" ? "#9f9f9fff" : "#d63d3dff",
-            }}
-            textStyle={{
-              textDecorationLine:
-                transaction.type === "income" ? "line-through" : "none",
-            }}
-          />
-        </View>
-        <ThemedButton
-          title="Simpan"
-          onPress={() => postTransaction(transaction)}
-          style={{ backgroundColor: "#61bcddff" }}
-        />
-      </View>
-    </ParallaxScrollView>
+        </ParallaxScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -404,7 +514,7 @@ const styles = StyleSheet.create({
   headerShape: {
     paddingHorizontal: 32,
     paddingTop: 20,
-    height: 320,
+    height: 310,
     borderBottomRightRadius: 60,
     borderBottomLeftRadius: 60,
   },
@@ -418,7 +528,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderWidth: 2,
     borderColor: "#ddd",
-    marginBottom: 20,
+    marginBottom: 15,
     gap: 5,
 
     // shadow for iOS
@@ -459,7 +569,7 @@ const styles = StyleSheet.create({
     maxWidth: 110,
     borderWidth: 2,
     borderColor: "#ddd",
-    marginBottom: 20,
+    marginBottom: 15,
     gap: 10,
   },
   playSoundText: {

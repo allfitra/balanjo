@@ -14,10 +14,10 @@ export async function getCurrentLocation() {
 
     // Panggil helper untuk reverse geocode via Nominatim
     const response = await getCityFromLatLng(
-      // loc.coords.latitude,
-      // loc.coords.longitude
-      -6.5407,
-      107.4463
+      loc.coords.latitude,
+      loc.coords.longitude
+      // -6.5407,
+      // 107.4463
     );
 
     if (!response || !response.data) {
